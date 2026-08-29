@@ -9,9 +9,17 @@ const documentRoute = require("./routes/document.route");
 const itineraryRoute = require("./routes/itinerary.route");
 const dashboardRoute = require("./routes/dashboard.route");
 
+const connectDB = require("./config/db");
+
 app.use(express.json());
 app.use(cors());
 app.use(morgan("dev"));
+
+// Ensure DB connection for Vercel serverless requests
+app.use(async (req, res, next) => {
+  await connectDB();
+  next();
+});
 
 // Serve static uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
