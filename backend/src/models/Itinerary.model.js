@@ -1,4 +1,4 @@
-const mongoose = require("mongoose")
+const mongoose = require("mongoose");
 
 const ItinerarySchema = new mongoose.Schema({
   userId: {
@@ -10,7 +10,7 @@ const ItinerarySchema = new mongoose.Schema({
   documentId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Document",
-    required: true,
+    required: false,
   },
 
   title: {
@@ -29,6 +29,11 @@ const ItinerarySchema = new mongoose.Schema({
     default: {},
   },
 
+  packingList: {
+    type: Object,
+    default: null,
+  },
+
   shareId: {
     type: String,
     unique: true,
@@ -45,10 +50,8 @@ const ItinerarySchema = new mongoose.Schema({
     enum: ["generated", "shared"],
     default: "generated",
   },
+}, { timestamps: true });
 
-
-} , {timestamps : true});
-
-const Itinerary = mongoose.model("Itinerary" , ItinerarySchema)
+const Itinerary = mongoose.model("Itinerary", ItinerarySchema);
 
 module.exports = Itinerary;

@@ -1,20 +1,7 @@
 const multer = require("multer");
-const path = require("path");
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join("src", "uploads"));
-  },
-
-  filename: (req, file, cb) => {
-
-    const uniqueFileName = Date.now() + "-" + file.originalname.replace(/\s+/g, "-");
-
-    cb(null, uniqueFileName);
-  },
-});
-
-//  Allow File Names
+// Use in-memory buffer storage to prevent writing uploaded files to disk
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
   const allowedMimeTypes = [
@@ -31,7 +18,6 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// Multer Instance
 const upload = multer({
   storage,
   fileFilter,

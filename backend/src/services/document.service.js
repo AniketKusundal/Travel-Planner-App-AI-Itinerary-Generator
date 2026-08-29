@@ -1,135 +1,103 @@
-const fs = require("fs")
-const pdfParse = require("pdf-parse")
-const Tesseract = require("tesseract.js") 
-const User = require("../models/User.model")
-const Document = require("../models/Document.model")
+const fs = require("fs");
+const pdfParse = require("pdf-parse");
+const Tesseract = require("tesseract.js");
+const User = require("../models/user.model");
+const Document = require("../models/Document.model");
+const { uploadStreamToCloudinary } = require("../config/cloudinary");
 
+const createDocument = async (userId, file) => {
+  console.log("File received in memory:", file?.originalname);
 
-const createDocument = async (userId , file) => {
+  if (!file || (!file.buffer && !file.path)) {
+    throw new Error("No File Uploaded");
+  }
 
-    console.log(" file recived " ,  file);
-    
-    if (!file) 
-    {
-        throw new Error("No File Uploaded")
-    }
+  let extractedText = "";
+  const fileBuffer = file.buffer || (file.path ? fs.readFileSync(file.path) : null);
 
-    let extractedText = ""
+  if (!fileBuffer) {
+    throw new Error("Invalid file content");
+  }
 
-    if (file.mimetype === 'image/jpg' || file.mimetype === 'image/png' || file.mimetype === 'image/jpeg') 
-    {
-        console.log("Starting OCR");
+  // OCR for Image files directly from memory buffer
+  if (file.mimetype === "image/jpg" || file.mimetype === "image/png" || file.mimetype === "image/jpeg") {
+    console.log("Starting OCR with Tesseract from buffer...");
+    const result = await Tesseract.recognize(fileBuffer, "eng");
+    extractedText = result.data.text;
+    console.log("OCR Extracted Length:", extractedText.length);
+  }
 
-        const result = await Tesseract.recognize(
-            file.path ,
-            "eng"
-        )
+  // Text extraction for PDF files directly from memory buffer
+  if (file.mimetype === "application/pdf") {
+    console.log("Parsing PDF from buffer...");
+    const pdfData = await pdfParse(fileBuffer);
+    extractedText = pdfData.text;
+    console.log("PDF Extracted Length:", extractedText.length);
+  }
 
-        extractedText = result.data.text
+  // Stream Upload directly to Cloudinary from memory (0 disk storage!)
+  let finalFileUrl = "";
+  const cloudinaryResult = await uploadStreamToCloudinary(fileBuffer, "travel_planner_docs");
 
-        console.log("OCR RESULT");
-        console.log(extractedText);    
-    }
+  if (cloudinaryResult && cloudinaryResult.secure_url) {
+    finalFileUrl = cloudinaryResult.secure_url;
+    console.log("Streamed to Cloudinary successfully:", finalFileUrl);
+  } else {
+    throw new Error("Cloudinary upload failed. Please verify your Cloudinary API credentials in .env");
+  }
 
-    //  Now for the PDF
+  const document = await Document.create({
+    userId,
+    fileName: file.originalname,
+    fileType: file.mimetype,
+    fileUrl: finalFileUrl,
+    extractedText: extractedText,
+    status: "uploaded",
+  });
 
-    if(file.mimetype === 'application/pdf')
-    {
-         const pdfBuffer = fs.readFileSync(file.path);
-
-         const pdfData = await pdfParse(pdfBuffer);
-
-         extractedText = pdfData.text;
-
-         console.log("PDF TEXT:");
-         console.log(extractedText);
-    }
-
-
-    const document = await Document.create({
-      userId,
-
-      fileName: file.originalname,
-
-      fileType: file.mimetype,
-
-      fileUrl: file.path,
-
-      extractedText: extractedText,
-
-      status: "uploaded",
-    });
-
-    return document
-}
-
-// Get All Document
-const getUserDocuments  = async (userId) => {
-
-    const documents = await Document.find({
-        userId ,
-    }).sort({
-        createdAt : -1 
-    });
-
-    return documents;
-}
-
-// Get Docment By ID
-const getDocumentById  = async (documentId) => {
-    
-    const document = await Document.findById(
-        documentId
-    )
-
-    if(!document)
-    {
-        throw new Error("Document Not Found")
-    }
-
-
-    return document;
-}
-
-
-//  Delete Document
-const deleteDocument = async (documentId) => {
-
-    const document = await Document.findById(
-        documentId
-    );
-
-    if (!document) {
-        throw new Error(
-            "Document Not Found"
-        );
-    }
-
-    // Delete File
-    if (
-        document.fileUrl &&
-        fs.existsSync(document.fileUrl)
-    ) {
-        fs.unlinkSync(
-            document.fileUrl
-        );
-    }
-
-    // Delete Mongo Record
-    await Document.findByIdAndDelete(
-        documentId
-    );
-
-    return {
-        message:
-            "Document Deleted Successfully",
-    };
+  return document;
 };
 
+// Get All Documents
+const getUserDocuments = async (userId) => {
+  const documents = await Document.find({
+    userId,
+  }).sort({
+    createdAt: -1,
+  });
+
+  return documents;
+};
+
+// Get Document By ID
+const getDocumentById = async (documentId) => {
+  const document = await Document.findById(documentId);
+
+  if (!document) {
+    throw new Error("Document Not Found");
+  }
+
+  return document;
+};
+
+// Delete Document
+const deleteDocument = async (documentId) => {
+  const document = await Document.findById(documentId);
+
+  if (!document) {
+    throw new Error("Document Not Found");
+  }
+
+  await Document.findByIdAndDelete(documentId);
+
+  return {
+    message: "Document Deleted Successfully",
+  };
+};
 
 module.exports = {
-    createDocument ,
-    getUserDocuments  ,
-    getDocumentById  ,
-    deleteDocument ,
-}
+  createDocument,
+  getUserDocuments,
+  getDocumentById,
+  deleteDocument,
+};

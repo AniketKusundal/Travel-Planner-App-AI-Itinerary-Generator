@@ -1,4 +1,4 @@
-const User = require("../models/User.model")
+const User = require("../models/user.model");
 const bcrypt = require("bcryptjs")
 const genrateToken = require("../utils/generateToken")
 
@@ -55,14 +55,56 @@ const LoginUser = async ({ email, password }) => {
     _id: user._id,
     name: user.name,
     email: user.email,
+    avatar: user.avatar || "",
+    homeAirport: user.homeAirport || "",
+    travelStyle: user.travelStyle || "Moderate Explorer",
+    favoriteDestinations: user.favoriteDestinations || "",
+    emergencyContact: user.emergencyContact || "",
+    emergencyPhone: user.emergencyPhone || "",
+    passportExpiry: user.passportExpiry || "",
+    bio: user.bio || "",
     token,
   };
-
-
 };
 
+const GetProfile = async (userId) => {
+  const user = await User.findById(userId).select("-password");
+  if (!user) throw new Error("User Not Found");
+  return user;
+};
+
+const UpdateProfile = async (userId, updateData) => {
+  const allowedFields = [
+    "name",
+    "avatar",
+    "homeAirport",
+    "travelStyle",
+    "favoriteDestinations",
+    "emergencyContact",
+    "emergencyPhone",
+    "passportExpiry",
+    "bio",
+  ];
+
+  const updateObj = {};
+  allowedFields.forEach((field) => {
+    if (updateData[field] !== undefined) {
+      updateObj[field] = updateData[field];
+    }
+  });
+
+  const updatedUser = await User.findByIdAndUpdate(userId, updateObj, {
+    new: true,
+    runValidators: true,
+  }).select("-password");
+
+  if (!updatedUser) throw new Error("User Not Found");
+  return updatedUser;
+};
 
 module.exports = {
-    SignupUser ,
-    LoginUser
-}
+  SignupUser,
+  LoginUser,
+  GetProfile,
+  UpdateProfile,
+};
